@@ -12,10 +12,16 @@ class ImageResultsViewController: UIViewController {
 	@IBOutlet weak var tableView: UITableView!
 	@IBOutlet weak var searchBar: UISearchBar!
 	
+	var flickrPhotoSearch = FlickrUrlRequest()
+	var searchResults = SearchResults()
+	var photoCollection = PhotoCollection()
+	
 	var tableSize: Int = 0
-	var photoDictionaryByRow: [Int: UIImage] = [:]
+	var photoDictionaryByRow: [Int: UIImage] = [:]  //Refactor into a data structure
 	
 	var selectedImage: UIImage? = nil
+	
+	var imageContainer = ImageContainer()
 	
 	override func viewDidLoad() {
 		super.viewDidLoad()
@@ -32,79 +38,45 @@ class ImageResultsViewController: UIViewController {
 		}
 	}
 
-	func downloadImageData(source: String, row: Int) {
-		if let requestURL = NSURL(string: source) {
-			
-			let session = NSURLSession.sharedSession()
-			print("\(requestURL)")
-			let task = session.dataTaskWithURL(requestURL) {
-				(data, response, error) -> Void in
-				
-				if error == nil {
-					print("error = \(error)")
-					
-					let httpResponse = response as! NSHTTPURLResponse
-					let statusCode = httpResponse.statusCode
-					print(statusCode)
-					if (statusCode == 200) {
-						if let image = UIImage(data: data!) {
-							print(image.size)
-							self.photoDictionaryByRow[row] = image
-							if (self.photoDictionaryByRow.count == self.tableSize) {
-								dispatch_async(dispatch_get_main_queue()) {
-									self.searchBar.userInteractionEnabled = true
-								}
-							}
-							dispatch_async(dispatch_get_main_queue()) {
-								self.tableView.reloadRowsAtIndexPaths([NSIndexPath(forRow: row, inSection: 0)], withRowAnimation:.Automatic)
-							}
-						}
-					}
-				}
-			}
-			task.resume()
-		}
-	}
-	
-	func downloadSizes(photoID: String, row: Int) {
-		if let requestURL = NSURL(string: "https://api.flickr.com/services/rest/?method=flickr.photos.getSizes&api_key=c754e354bae8187babe94a1715e047ae&photo_id=\(photoID)&format=json&nojsoncallback=1") {
-			
-			let session = NSURLSession.sharedSession()
-			let task = session.dataTaskWithURL(requestURL) {
-				(data, response, error) -> Void in
-				
-				if error == nil {
-					let httpResponse = response as! NSHTTPURLResponse
-					let statusCode = httpResponse.statusCode
-					if (statusCode == 200) {
-						let json = try! NSJSONSerialization.JSONObjectWithData(data!, options:.AllowFragments)
-						
-						if let sizesInfo = json["sizes"] as? [String: AnyObject] {
-							if let sizes = sizesInfo["size"] as?  [[String : AnyObject]] {
-								if let size = sizes.first {
-									if let source = size["source"] as? String {
-										print("image source: \(source)")
-										
-										self.downloadImageData(source, row: row)
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-			task.resume()
-		}
-	}
-	
 	func photosDataBasedOnSearchTerm(searchTerm: String) {
+		flickrPhotoSearch.fetchResponseData(FlickrSearchRequestString(searchTerm: searchTerm).buildRequest(), callback: { (response) in
+			if let responseData = response as? NSData {
+				self.flickrPhotoSearch.setResponseData(responseData)
+				print(self.flickrPhotoSearch.printData())
+			}
+			
+			self.searchResults.addPhotosToCollection(self.flickrPhotoSearch.getResponseData())
+			self.photoCollection = self.searchResults.getPhotoCollection()
+			
+			
+			dispatch_async(dispatch_get_main_queue()) {
+				self.displayPhotosInTable()
+			}
+			
+		})
+		
+		// Enable search bar after search is done
+		self.searchBar.userInteractionEnabled = true
+	}
+	
+	private func displayPhotosInTable()
+	{
+		tableSize = photoCollection.getSize()
+		tableView.reloadData()
+		
+		var row: Int = 0
+		for item in photoCollection.photos {
+			self.downloadSizes(item.id, row: row)
+			row += 1
+		}
+	}
+	
+	func photosDataBasedOnSearchTerm1(searchTerm: String) {
 		photoDictionaryByRow.removeAll()
 		tableSize = 0
 		tableView.reloadData()
 		
-		if let requestURL = NSURL(string: "https://api.flickr.com/services/rest/?method=flickr.photos.search&api_key=c754e354bae8187babe94a1715e047ae&text=\(searchTerm)&format=json&nojsoncallback=1") {
-			
-			//		let urlRequest: NSMutableURLRequest = NSMutableURLRequest(URL: requestURL)
+		if let requestURL = NSURL(string: FlickrSearchRequestString(searchTerm: searchTerm).buildRequest()) {
 			let session = NSURLSession.sharedSession()
 			print("\(requestURL)")
 			let task = session.dataTaskWithURL(requestURL) {
@@ -131,7 +103,6 @@ class ImageResultsViewController: UIViewController {
 								var row: Int = 0
 								for photo in photos {
 									if let owner = photo["owner"] as? String {
-										
 										if let id = photo["id"] as? String {
 											self.downloadSizes(id, row: row)
 											print(owner,id)
@@ -143,12 +114,83 @@ class ImageResultsViewController: UIViewController {
 							
 						}
 						
-					}catch {
+					}
+					catch {
 						print("Error with Json: \(error)")
 					}
 				}
 			}
 			print("task.resume")
+			task.resume()
+		}
+	}
+	
+	
+	func downloadImageData(source: String, row: Int) {
+		if let requestURL = NSURL(string: source) {
+			let session = NSURLSession.sharedSession()
+			print("\(requestURL)")
+			let task = session.dataTaskWithURL(requestURL) {
+				(data, response, error) -> Void in
+				if error == nil {
+					print("error = \(error)")
+					let httpResponse = response as! NSHTTPURLResponse
+					let statusCode = httpResponse.statusCode
+					print(statusCode)
+					if (statusCode == 200) {
+						if let image = UIImage(data: data!) {
+							print(image.size)
+							self.photoDictionaryByRow[row] = image
+							if (self.photoDictionaryByRow.count == self.tableSize) {
+								dispatch_async(dispatch_get_main_queue()) {
+									self.searchBar.userInteractionEnabled = true
+								}
+							}
+							dispatch_async(dispatch_get_main_queue()) {
+								self.tableView.reloadRowsAtIndexPaths([NSIndexPath(forRow: row, inSection: 0)], withRowAnimation:.Automatic)
+							}
+						}
+					}
+				}
+			}
+			task.resume()
+		}
+	}
+	
+	func downloadSizes(photoID: String, row: Int) {
+		if let requestURL = NSURL(string: FlickrGetSizesRequestString(photoID: photoID).buildRequest()) {
+			print("Download sizes request URL: \(requestURL)")
+			let session = NSURLSession.sharedSession()
+			let task = session.dataTaskWithURL(requestURL) {
+				(data, response, error) -> Void in
+				if error == nil {
+					let httpResponse = response as! NSHTTPURLResponse
+					let statusCode = httpResponse.statusCode
+					if (statusCode == 200) {
+						let json = try! NSJSONSerialization.JSONObjectWithData(data!, options:.AllowFragments)
+//						if let imageData = json["sizes"] as? [String: AnyObject] {
+//							let tmpImage = SingleImageData(imageData: imageData)
+//							tmpImage.printImageData()
+//							print("---------------------------------------------")
+//							print(tmpImage.imageSourceByLabel("Original"))
+//							print("---------------------------------------------")
+//							self.imageContainer.addImage(row, image: tmpImage)
+//						}
+						
+						if let sizesInfo = json["sizes"] as? [String: AnyObject] {
+							if let sizes = sizesInfo["size"] as?  [[String : AnyObject]] {
+								if let size = sizes.first {
+									if let source = size["source"] as? String {
+										print("image source: \(source)")
+										
+										self.downloadImageData(source, row: row)
+									}
+								}
+							}
+						}
+					}
+				}
+			}
 			task.resume()
 		}
 	}
