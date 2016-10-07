@@ -13,15 +13,18 @@ class ImageResultsViewController: UIViewController {
 	@IBOutlet weak var searchBar: UISearchBar!
 	
 	var flickrPhotoSearch = FlickrUrlRequest()
-	var searchResults = SearchResults()
+	var downloadSizes = FlickrUrlRequest()
+	var uiImageData = FlickrUrlRequest()
+	
+	var searchResults = SearchResultsJsonObject()
 	var photoCollection = PhotoCollection()
+	var jsonImageData = SingleImageJsonObject()
 	
 	var tableSize: Int = 0
 	var photoDictionaryByRow: [Int: UIImage] = [:]  //Refactor into a data structure
 	
 	var selectedImage: UIImage? = nil
 	
-	var imageContainer = ImageContainer()
 	
 	override func viewDidLoad() {
 		super.viewDidLoad()
@@ -42,157 +45,77 @@ class ImageResultsViewController: UIViewController {
 		flickrPhotoSearch.fetchResponseData(FlickrSearchRequestString(searchTerm: searchTerm).buildRequest(), callback: { (response) in
 			if let responseData = response as? NSData {
 				self.flickrPhotoSearch.setResponseData(responseData)
-				print(self.flickrPhotoSearch.printData())
+				//print(self.flickrPhotoSearch.printData())
 			}
 			
-			self.searchResults.addPhotosToCollection(self.flickrPhotoSearch.getResponseData())
+			// Every new search inquery needs to start updating table at row 0
+			// Scrolling to the bottom of the table should start append to search results instead so it has to start
+			// with self.photoCollection.getSize()
+			self.searchResults.addPhotosToCollection(self.flickrPhotoSearch.getResponseData(), startingAtRow: 0)
 			self.photoCollection = self.searchResults.getPhotoCollection()
 			
+			self.downloadImageForEverySearchResult()
 			
-			dispatch_async(dispatch_get_main_queue()) {
-				self.displayPhotosInTable()
-			}
-			
+			// Enable search bar after search is done
+			//dispatch_async(dispatch_get_main_queue()) {
+				//self.searchBar.userInteractionEnabled = true
+				//self.updateTableView()
+			//}
 		})
-		
-		// Enable search bar after search is done
+		// TODO: Figure out how to stop scrolling to the top of the table after viewing the picture
+		// TODO: Figure out how to display table content after every query
 		self.searchBar.userInteractionEnabled = true
+		self.updateTableView()
 	}
-	
-	private func displayPhotosInTable()
+
+	private func updateTableView() {
+		self.tableSize = self.photoCollection.getSize()
+		self.tableView.reloadData()
+	}
+
+	private func downloadImageForEverySearchResult()
 	{
-		tableSize = photoCollection.getSize()
-		tableView.reloadData()
-		
 		var row: Int = 0
-		for item in photoCollection.photos {
-			self.downloadSizes(item.id, row: row)
+		for key in photoCollection.photoDictionaryByRow.keys {
+			self.downloadSizes(photoCollection.photoDictionaryByRow[key]!.id, row: row, photo: photoCollection.photoDictionaryByRow[key]!)
 			row += 1
 		}
 	}
 	
-	func photosDataBasedOnSearchTerm1(searchTerm: String) {
-		photoDictionaryByRow.removeAll()
-		tableSize = 0
-		tableView.reloadData()
-		
-		if let requestURL = NSURL(string: FlickrSearchRequestString(searchTerm: searchTerm).buildRequest()) {
-			let session = NSURLSession.sharedSession()
-			print("\(requestURL)")
-			let task = session.dataTaskWithURL(requestURL) {
-				(data, response, error) -> Void in
-				
-				print("error = \(error)")
-				
-				let httpResponse = response as! NSHTTPURLResponse
-				let statusCode = httpResponse.statusCode
-				print(statusCode)
-				if (statusCode == 200) {
-					print("Everyone is fine, file downloaded successfully.")
+	func downloadSizes(photoID: String, row: Int, photo: Photo) {
+		downloadSizes.fetchResponseData(FlickrGetSizesRequestString(photoID: photoID).buildRequest(), callback: { (response) in
+			if let responseData = response as? NSData {
+				self.jsonImageData.singleImage(responseData)
+				if let imageSource = self.jsonImageData.getImageSourceByLabel() {
+					print("Image Source: \(imageSource)")
+					self.downloadImageData(imageSource, row: row, photo: photo)
+				}
+			}
+		})
+	}
+	
+	func downloadImageData(source: String, row: Int, photo: Photo) {
+		uiImageData.fetchResponseData(source, callback: { (response) in
+			if let responseData = response as? NSData {
+				self.uiImageData.setResponseData(responseData)
+				if let image = UIImage(data: self.uiImageData.getResponseData()) {
+					print("Downloaded image \(row)")
+					print(image)
+					photo.setImage(image)
+					self.photoCollection.addPhoto(row, photo: photo)
 					
-					do{
-						
-						let json = try NSJSONSerialization.JSONObjectWithData(data!, options:.AllowFragments)
-						
-						if let photosInfo = json["photos"] as? [String: AnyObject] {
-							if let photos = photosInfo["photo"] as?  [[String : AnyObject]] {
-								self.tableSize = photos.count
-								dispatch_async(dispatch_get_main_queue()) {
-									self.tableView.reloadData()
-								}
-								var row: Int = 0
-								for photo in photos {
-									if let owner = photo["owner"] as? String {
-										if let id = photo["id"] as? String {
-											self.downloadSizes(id, row: row)
-											print(owner,id)
-										}
-									}
-									row = row + 1
-								}
-							}
-							
-						}
-						
-					}
-					catch {
-						print("Error with Json: \(error)")
-					}
-				}
-			}
-			print("task.resume")
-			task.resume()
-		}
-	}
-	
-	
-	func downloadImageData(source: String, row: Int) {
-		if let requestURL = NSURL(string: source) {
-			let session = NSURLSession.sharedSession()
-			print("\(requestURL)")
-			let task = session.dataTaskWithURL(requestURL) {
-				(data, response, error) -> Void in
-				if error == nil {
-					print("error = \(error)")
-					let httpResponse = response as! NSHTTPURLResponse
-					let statusCode = httpResponse.statusCode
-					print(statusCode)
-					if (statusCode == 200) {
-						if let image = UIImage(data: data!) {
-							print(image.size)
-							self.photoDictionaryByRow[row] = image
-							if (self.photoDictionaryByRow.count == self.tableSize) {
-								dispatch_async(dispatch_get_main_queue()) {
-									self.searchBar.userInteractionEnabled = true
-								}
-							}
-							dispatch_async(dispatch_get_main_queue()) {
-								self.tableView.reloadRowsAtIndexPaths([NSIndexPath(forRow: row, inSection: 0)], withRowAnimation:.Automatic)
-							}
-						}
-					}
-				}
-			}
-			task.resume()
-		}
-	}
-	
-	func downloadSizes(photoID: String, row: Int) {
-		if let requestURL = NSURL(string: FlickrGetSizesRequestString(photoID: photoID).buildRequest()) {
-			print("Download sizes request URL: \(requestURL)")
-			let session = NSURLSession.sharedSession()
-			let task = session.dataTaskWithURL(requestURL) {
-				(data, response, error) -> Void in
-				if error == nil {
-					let httpResponse = response as! NSHTTPURLResponse
-					let statusCode = httpResponse.statusCode
-					if (statusCode == 200) {
-						let json = try! NSJSONSerialization.JSONObjectWithData(data!, options:.AllowFragments)
-//						if let imageData = json["sizes"] as? [String: AnyObject] {
-//							let tmpImage = SingleImageData(imageData: imageData)
-//							tmpImage.printImageData()
-//							print("---------------------------------------------")
-//							print(tmpImage.imageSourceByLabel("Original"))
-//							print("---------------------------------------------")
-//							self.imageContainer.addImage(row, image: tmpImage)
+					self.photoDictionaryByRow[row] = image
+//					if (self.photoDictionaryByRow.count == self.tableSize) {
+//						dispatch_async(dispatch_get_main_queue()) {
+//							self.searchBar.userInteractionEnabled = true
 //						}
-						
-						if let sizesInfo = json["sizes"] as? [String: AnyObject] {
-							if let sizes = sizesInfo["size"] as?  [[String : AnyObject]] {
-								if let size = sizes.first {
-									if let source = size["source"] as? String {
-										print("image source: \(source)")
-										
-										self.downloadImageData(source, row: row)
-									}
-								}
-							}
-						}
-					}
+//					}
+//					dispatch_async(dispatch_get_main_queue()) {
+//						self.tableView.reloadRowsAtIndexPaths([NSIndexPath(forRow: row, inSection: 0)], withRowAnimation:.Automatic)
+//					}
 				}
 			}
-			task.resume()
-		}
+		})
 	}
 }
 
@@ -204,10 +127,12 @@ extension ImageResultsViewController: UITableViewDataSource {
 	func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
 		let cell = tableView.dequeueReusableCellWithIdentifier("Cell") as! ImageResultTableViewCell
 		
-		if let image = photoDictionaryByRow[indexPath.row] {
+		//if let image = photoDictionaryByRow[indexPath.row] {
+		if let image = self.photoCollection.getPhotoByIndex(indexPath.row) {
 			cell.imageView?.image = image
 		}
-		cell.textLabel?.text = "Row \(indexPath.row)"
+		//cell.textLabel?.text = "Row \(indexPath.row)"
+		cell.textLabel?.text = "Row \(indexPath.row + 1) \(self.photoCollection.photoDictionaryByRow[indexPath.row]!.title)"
 		
 		return cell
 	}
@@ -215,19 +140,35 @@ extension ImageResultsViewController: UITableViewDataSource {
 
 extension ImageResultsViewController: UITableViewDelegate {
 	func tableView(tableView: UITableView, didSelectRowAtIndexPath indexPath: NSIndexPath) {
-		selectedImage = photoDictionaryByRow[indexPath.row]
-		
+		//selectedImage = photoDictionaryByRow[indexPath.row]
+		selectedImage = self.photoCollection.getPhotoByIndex(indexPath.row)
+
 		performSegueWithIdentifier("ShowImage", sender: self)
+	}
+}
+
+extension ImageResultsViewController: UIScrollViewDelegate {
+	func scrollViewDidScroll(scrollView: UIScrollView) {
+		let indexes = tableView.indexPathsForVisibleRows;
+		for index in indexes! {
+			if (photoCollection.getSize() - index.row < 10) {
+				print("Index path: \(index.row)");
+				if let searchTerm = searchBar.text {
+					photosDataBasedOnSearchTerm(searchTerm)
+				}
+			}
+		}
 	}
 }
 
 extension ImageResultsViewController: UISearchBarDelegate {
 	func searchBarSearchButtonClicked(searchBar: UISearchBar) {
-		print("Searched for: \(searchBar.text)")
+		//print("Searched for: \(searchBar.text)")
 		searchBar.userInteractionEnabled = false
 		if let searchTerm = searchBar.text {
 			photosDataBasedOnSearchTerm(searchTerm)
 		}
+		// Disable search bar after search is initiated
 		searchBar.endEditing(true)
 	}
 }

@@ -7,22 +7,32 @@
 //
 
 import Foundation
+import UIKit
 
 class PhotoCollection {
-	var photos: [Photo] = []
+	var photoDictionaryByRow: [Int: Photo] = [:]
 	
-	func addPhoto(photo: Photo) {
-		photos.append(photo)
+	func addPhoto(index: Int, photo: Photo) {
+		photoDictionaryByRow[index] = photo
 	}
 	
 	func getSize() -> Int {
-		return photos.count
+		return photoDictionaryByRow.count
 	}
+	
+	func setPhotoByIndex(index: Int, image: UIImage) {
+		photoDictionaryByRow[index]!.setImage(image)
+	}
+	
+	func getPhotoByIndex(index: Int) -> UIImage? {
+		return photoDictionaryByRow[index]!.getImage()
+	}
+
 	
 	func printCollection() {
 		print("================================== PHOTO COLLECTION INFORMATION ===============================================")
-		print("There are \(photos.count) photos in the collection.")
-		for item in photos {
+		print("There are \(photoDictionaryByRow.keys.count) photos in the collection.")
+		for item in photoDictionaryByRow {
 			print(item)
 		}
 		print("===============================================================================================================")

@@ -8,7 +8,65 @@
 
 import UIKit
 
-class SingleImageData {
+class SingleImageJsonObject {
+	var imageData:[[String : AnyObject]] = []
+	var processedImage: SingleImageData? = nil
+	
+	func singleImage(responseData: NSData) {
+		let json = try! NSJSONSerialization.JSONObjectWithData(responseData, options:.AllowFragments)
+		if let sizesInfo = json["sizes"] as? [String: AnyObject] {
+			if let sizes = sizesInfo["size"] as?  [[String : AnyObject]] {
+				imageData = sizes
+				//print("*****************************************************")
+				//print(imageData)
+				//print("*****************************************************")
+			}
+		}
+	}
+	
+	func getImageSourceByLabel(label: String = "Square") -> String? {
+		// Download biggest possible image
+		// return imageData.last!["source"] as? String
+		
+		for item in imageData {
+			if let image = item as NSDictionary? {
+				let key = image["label"] as? String
+				if key == label {
+					return image["source"] as? String
+				}
+			}
+		}
+		return nil
+	}
+}
+
+class ImageCollection {
+	var images: [Int:SingleImageJsonObject]
+	
+	init () {
+		images = [:]
+	}
+	
+	func addImage(tableRow: Int, image: SingleImageJsonObject) -> Void {
+		images[tableRow] = image
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class SingleImageData2 {
 	let imageData: NSDictionary
 	
 	init (imageData: [String: AnyObject] ) {
@@ -61,19 +119,12 @@ class SingleImageData {
 //	}
 }
 
-class ImageContainer {
-	var imageContainer: [Int:SingleImageData]
-	
-	init () {
-		imageContainer = [:]
-	}
-	
-	func addImage(tableRow: Int, image: SingleImageData) -> Void {
-		imageContainer[tableRow] = image
-	}
-}
 
-class SingleImageData1 {
+
+
+
+
+class SingleImageData {
 	var image:  UIImage? = nil
 	var label:  String //"Square"
 	var width:  Int    // 75
@@ -89,29 +140,6 @@ class SingleImageData1 {
 		source = data["source"]! as! String
 		url = data["url"]! as! String
 		media = data["media"]! as! String
-	}
-	
-	func downloadImageData(source: String) {
-		if let requestURL = NSURL(string: source) {
-			
-			let session = NSURLSession.sharedSession()
-			print("\(requestURL)")
-			let task = session.dataTaskWithURL(requestURL) {
-				(data, response, error) -> Void in
-				
-				if error == nil {
-					print("error = \(error)")
-					
-					let httpResponse = response as! NSHTTPURLResponse
-					let statusCode = httpResponse.statusCode
-					print(statusCode)
-					if (statusCode == 200) {
-						self.image = UIImage(data: data!)
-					}
-				}
-			}
-			task.resume()
-		}
 	}
 }
 
