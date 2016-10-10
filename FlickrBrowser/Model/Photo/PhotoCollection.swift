@@ -27,6 +27,10 @@ class PhotoCollection {
 	func getPhotoByIndex(index: Int) -> UIImage? {
 		return photoDictionaryByRow[index]!.getImage()
 	}
+	
+	func resetCollection() {
+		photoDictionaryByRow = [:]
+	}
 
 	
 	func printCollection() {

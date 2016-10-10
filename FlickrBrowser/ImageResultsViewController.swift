@@ -54,9 +54,10 @@ class ImageResultsViewController: UIViewController {
 			// Every new search inquery needs to start updating table at row 0
 			// Scrolling to the bottom of the table should start append to search results instead so it has to start
 			// with self.photoCollection.getSize()
-			var bottomTableRow = 0
-			if (!self.isNewSearchTerm) {
-				bottomTableRow = self.photoCollection.getSize()
+			var bottomTableRow = self.photoCollection.getSize()
+			if (self.isNewSearchTerm) {
+				bottomTableRow = 0
+				self.photoCollection.resetCollection()
 			}
 			
 			self.searchResults.addPhotosToCollection(self.flickrPhotoSearch.getResponseData(), startingAtRow: bottomTableRow)
@@ -64,11 +65,12 @@ class ImageResultsViewController: UIViewController {
 			self.tableSize = self.photoCollection.getSize()
 			dispatch_async(dispatch_get_main_queue()) {
 				self.tableView.reloadData()
+				self.searchBar.userInteractionEnabled = true
 			}
 			
 			self.downloadImageForEverySearchResult()
+			self.shouldLoadMoreImages = true
 		})
-		self.shouldLoadMoreImages = false
 	}
 
 	private func updateTableView() {
@@ -106,15 +108,6 @@ class ImageResultsViewController: UIViewController {
 					print(image)
 					photo.setImage(image)
 					self.photoCollection.addPhoto(row, photo: photo)
-					
-					print(self.photoCollection.getPhotoByIndex(row))
-					
-					//self.photoDictionaryByRow[row] = image
-//					if (self.photoDictionaryByRow.count == self.tableSize) {
-//						dispatch_async(dispatch_get_main_queue()) {
-//							self.searchBar.userInteractionEnabled = true
-//						}
-//					}
 					dispatch_async(dispatch_get_main_queue()) {
 						self.tableView.reloadRowsAtIndexPaths([NSIndexPath(forRow: row, inSection: 0)], withRowAnimation:.Automatic)
 					}
@@ -133,11 +126,9 @@ extension ImageResultsViewController: UITableViewDataSource {
 	func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
 		let cell = tableView.dequeueReusableCellWithIdentifier("Cell") as! ImageResultTableViewCell
 		
-		//if let image = photoDictionaryByRow[indexPath.row] {
 		if let image = self.photoCollection.getPhotoByIndex(indexPath.row) {
 			cell.imageView?.image = image
 		}
-		//cell.textLabel?.text = "Row \(indexPath.row)"
 		cell.textLabel?.text = "Row \(indexPath.row + 1): Title: \(self.photoCollection.photoDictionaryByRow[indexPath.row]!.title)"
 		
 		return cell
@@ -146,7 +137,6 @@ extension ImageResultsViewController: UITableViewDataSource {
 
 extension ImageResultsViewController: UITableViewDelegate {
 	func tableView(tableView: UITableView, didSelectRowAtIndexPath indexPath: NSIndexPath) {
-		//selectedImage = photoDictionaryByRow[indexPath.row]
 		selectedImage = self.photoCollection.getPhotoByIndex(indexPath.row)
 
 		performSegueWithIdentifier("ShowImage", sender: self)
@@ -159,7 +149,7 @@ extension ImageResultsViewController: UIScrollViewDelegate {
 		for index in indexes! {
 			if (photoCollection.getSize() - index.row < 10 && self.shouldLoadMoreImages) {
 				print("Index path: \(index.row)");
-				// TODO: Make sure we only do this once
+				self.shouldLoadMoreImages = false
 				self.searchBarSearchButtonClicked(searchBar)
 			}
 		}
@@ -175,7 +165,6 @@ extension ImageResultsViewController: UISearchBarDelegate {
 		if let searchTerm = searchBar.text {
 			photosDataBasedOnSearchTerm(searchTerm)
 			if (self.currentSearchTerm != searchTerm) {
-				// If Rome != NYC
 				self.isNewSearchTerm = true
 				self.currentSearchTerm = searchTerm
 			}
