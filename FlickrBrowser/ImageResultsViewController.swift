@@ -20,6 +20,9 @@ class ImageResultsViewController: UIViewController {
 	var photoCollection = PhotoCollection()
 	var jsonImageData = SingleImageJsonObject()
 	
+	var currentSearchTerm: String = ""
+	var isNewSearchTerm: Bool = true
+	var shouldLoadMoreImages: Bool = false
 	var tableSize: Int = 0
 	var photoDictionaryByRow: [Int: UIImage] = [:]  //Refactor into a data structure
 	
@@ -51,21 +54,21 @@ class ImageResultsViewController: UIViewController {
 			// Every new search inquery needs to start updating table at row 0
 			// Scrolling to the bottom of the table should start append to search results instead so it has to start
 			// with self.photoCollection.getSize()
-			self.searchResults.addPhotosToCollection(self.flickrPhotoSearch.getResponseData(), startingAtRow: 0)
+			var bottomTableRow = 0
+			if (!self.isNewSearchTerm) {
+				bottomTableRow = self.photoCollection.getSize()
+			}
+			
+			self.searchResults.addPhotosToCollection(self.flickrPhotoSearch.getResponseData(), startingAtRow: bottomTableRow)
 			self.photoCollection = self.searchResults.getPhotoCollection()
+			self.tableSize = self.photoCollection.getSize()
+			dispatch_async(dispatch_get_main_queue()) {
+				self.tableView.reloadData()
+			}
 			
 			self.downloadImageForEverySearchResult()
-			
-			// Enable search bar after search is done
-			//dispatch_async(dispatch_get_main_queue()) {
-				//self.searchBar.userInteractionEnabled = true
-				//self.updateTableView()
-			//}
 		})
-		// TODO: Figure out how to stop scrolling to the top of the table after viewing the picture
-		// TODO: Figure out how to display table content after every query
-		self.searchBar.userInteractionEnabled = true
-		self.updateTableView()
+		self.shouldLoadMoreImages = false
 	}
 
 	private func updateTableView() {
@@ -87,7 +90,7 @@ class ImageResultsViewController: UIViewController {
 			if let responseData = response as? NSData {
 				self.jsonImageData.singleImage(responseData)
 				if let imageSource = self.jsonImageData.getImageSourceByLabel() {
-					print("Image Source: \(imageSource)")
+					//print("Image Source: \(imageSource)")
 					self.downloadImageData(imageSource, row: row, photo: photo)
 				}
 			}
@@ -104,15 +107,17 @@ class ImageResultsViewController: UIViewController {
 					photo.setImage(image)
 					self.photoCollection.addPhoto(row, photo: photo)
 					
-					self.photoDictionaryByRow[row] = image
+					print(self.photoCollection.getPhotoByIndex(row))
+					
+					//self.photoDictionaryByRow[row] = image
 //					if (self.photoDictionaryByRow.count == self.tableSize) {
 //						dispatch_async(dispatch_get_main_queue()) {
 //							self.searchBar.userInteractionEnabled = true
 //						}
 //					}
-//					dispatch_async(dispatch_get_main_queue()) {
-//						self.tableView.reloadRowsAtIndexPaths([NSIndexPath(forRow: row, inSection: 0)], withRowAnimation:.Automatic)
-//					}
+					dispatch_async(dispatch_get_main_queue()) {
+						self.tableView.reloadRowsAtIndexPaths([NSIndexPath(forRow: row, inSection: 0)], withRowAnimation:.Automatic)
+					}
 				}
 			}
 		})
@@ -121,6 +126,7 @@ class ImageResultsViewController: UIViewController {
 
 extension ImageResultsViewController: UITableViewDataSource {
 	func tableView(tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+		print("Table Size \(tableSize)")
 		return tableSize
 	}
 	
@@ -132,7 +138,7 @@ extension ImageResultsViewController: UITableViewDataSource {
 			cell.imageView?.image = image
 		}
 		//cell.textLabel?.text = "Row \(indexPath.row)"
-		cell.textLabel?.text = "Row \(indexPath.row + 1) \(self.photoCollection.photoDictionaryByRow[indexPath.row]!.title)"
+		cell.textLabel?.text = "Row \(indexPath.row + 1): Title: \(self.photoCollection.photoDictionaryByRow[indexPath.row]!.title)"
 		
 		return cell
 	}
@@ -151,11 +157,10 @@ extension ImageResultsViewController: UIScrollViewDelegate {
 	func scrollViewDidScroll(scrollView: UIScrollView) {
 		let indexes = tableView.indexPathsForVisibleRows;
 		for index in indexes! {
-			if (photoCollection.getSize() - index.row < 10) {
+			if (photoCollection.getSize() - index.row < 10 && self.shouldLoadMoreImages) {
 				print("Index path: \(index.row)");
-				if let searchTerm = searchBar.text {
-					photosDataBasedOnSearchTerm(searchTerm)
-				}
+				// TODO: Make sure we only do this once
+				self.searchBarSearchButtonClicked(searchBar)
 			}
 		}
 	}
@@ -163,10 +168,21 @@ extension ImageResultsViewController: UIScrollViewDelegate {
 
 extension ImageResultsViewController: UISearchBarDelegate {
 	func searchBarSearchButtonClicked(searchBar: UISearchBar) {
-		//print("Searched for: \(searchBar.text)")
+		print("Searched for: \(searchBar.text)")
+		print("Current Search Term: \(self.currentSearchTerm)")
+		
 		searchBar.userInteractionEnabled = false
 		if let searchTerm = searchBar.text {
 			photosDataBasedOnSearchTerm(searchTerm)
+			if (self.currentSearchTerm != searchTerm) {
+				// If Rome != NYC
+				self.isNewSearchTerm = true
+				self.currentSearchTerm = searchTerm
+			}
+			else
+			{
+				self.isNewSearchTerm = false
+			}
 		}
 		// Disable search bar after search is initiated
 		searchBar.endEditing(true)

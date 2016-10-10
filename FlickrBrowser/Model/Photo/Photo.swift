@@ -26,8 +26,8 @@ class Photo {
 		self.image = image
 	}
 	
-	func getImage() -> UIImage {
-		return image!
+	func getImage() -> UIImage? {
+		return image
 	}
 }
 
