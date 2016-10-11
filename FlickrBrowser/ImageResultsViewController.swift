@@ -24,7 +24,6 @@ class ImageResultsViewController: UIViewController {
 	var isNewSearchTerm: Bool = true
 	var shouldLoadMoreImages: Bool = false
 	var tableSize: Int = 0
-	var photoDictionaryByRow: [Int: UIImage] = [:]  //Refactor into a data structure
 	
 	var selectedImage: UIImage? = nil
 	
@@ -48,12 +47,8 @@ class ImageResultsViewController: UIViewController {
 		flickrPhotoSearch.fetchResponseData(FlickrSearchRequestString(searchTerm: searchTerm).buildRequest(), callback: { (response) in
 			if let responseData = response as? NSData {
 				self.flickrPhotoSearch.setResponseData(responseData)
-				//print(self.flickrPhotoSearch.printData())
 			}
-			
-			// Every new search inquery needs to start updating table at row 0
-			// Scrolling to the bottom of the table should start append to search results instead so it has to start
-			// with self.photoCollection.getSize()
+
 			var bottomTableRow = self.photoCollection.getSize()
 			if (self.isNewSearchTerm) {
 				bottomTableRow = 0
@@ -73,11 +68,6 @@ class ImageResultsViewController: UIViewController {
 		})
 	}
 
-	private func updateTableView() {
-		self.tableSize = self.photoCollection.getSize()
-		self.tableView.reloadData()
-	}
-
 	private func downloadImageForEverySearchResult()
 	{
 		var row: Int = 0
@@ -92,23 +82,32 @@ class ImageResultsViewController: UIViewController {
 			if let responseData = response as? NSData {
 				self.jsonImageData.singleImage(responseData)
 				if let imageSource = self.jsonImageData.getImageSourceByLabel() {
-					//print("Image Source: \(imageSource)")
+					self.downloadImageData(imageSource, row: row, photo: photo, isThumbnail: true)
+				}
+				if let imageSource = self.jsonImageData.getImageSourceByLabel("Large") {
 					self.downloadImageData(imageSource, row: row, photo: photo)
 				}
 			}
 		})
 	}
 	
-	func downloadImageData(source: String, row: Int, photo: Photo) {
+	func downloadImageData(source: String, row: Int, photo: Photo, isThumbnail: Bool = false) {
 		uiImageData.fetchResponseData(source, callback: { (response) in
 			if let responseData = response as? NSData {
 				self.uiImageData.setResponseData(responseData)
 				if let image = UIImage(data: self.uiImageData.getResponseData()) {
-					print("Downloaded image \(row)")
-					print(image)
-					photo.setImage(image)
+//					print("Downloaded image \(row)")
+//					print(image)
+					if(isThumbnail) {
+						photo.setThumbnail(image)
+					}
+					else {
+						photo.setImage(image)
+					}
+					
 					self.photoCollection.addPhoto(row, photo: photo)
 					dispatch_async(dispatch_get_main_queue()) {
+						print("Playing with row: \(row)")
 						self.tableView.reloadRowsAtIndexPaths([NSIndexPath(forRow: row, inSection: 0)], withRowAnimation:.Automatic)
 					}
 				}
@@ -126,7 +125,7 @@ extension ImageResultsViewController: UITableViewDataSource {
 	func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
 		let cell = tableView.dequeueReusableCellWithIdentifier("Cell") as! ImageResultTableViewCell
 		
-		if let image = self.photoCollection.getPhotoByIndex(indexPath.row) {
+		if let image = self.photoCollection.getThumbnailByIndex(indexPath.row) {
 			cell.imageView?.image = image
 		}
 		cell.textLabel?.text = "Row \(indexPath.row + 1): Title: \(self.photoCollection.photoDictionaryByRow[indexPath.row]!.title)"

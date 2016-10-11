@@ -28,6 +28,10 @@ class PhotoCollection {
 		return photoDictionaryByRow[index]!.getImage()
 	}
 	
+	func getThumbnailByIndex(index: Int) -> UIImage? {
+		return photoDictionaryByRow[index]!.getThumbnail()
+	}
+	
 	func resetCollection() {
 		photoDictionaryByRow = [:]
 	}
