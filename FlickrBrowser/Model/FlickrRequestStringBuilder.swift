@@ -1,11 +1,3 @@
-//
-//  FlickrRequest.swift
-//  FlickrBrowser
-//
-//  Created by maxlev on 9/14/16.
-//  Copyright © 2016 LokiSoftware. All rights reserved.
-//
-
 class FlickrRequestStringBuilder {
 	let urlHeader:    String  = "https://api.flickr.com/services/rest/?"
 	let api_key:      String  = "api_key=c754e354bae8187babe94a1715e047ae"

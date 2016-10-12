@@ -1,13 +1,4 @@
-//
-//  SearchResults.swift
-//  FlickrBrowser
-//
-//  Created by maxlev on 10/2/16.
-//  Copyright © 2016 LokiSoftware. All rights reserved.
-//
-
 import Foundation
-
 
 class SearchResultsJsonObject {
 	var photoCollection = PhotoCollection()
@@ -36,21 +27,10 @@ class SearchResultsJsonObject {
 		catch {
 			print("Error with Json: \(error)")
 		}
-		print("Completed Initializing Photo Collection")
-		
-//		for i in 0..<photoCollection.getSize() {
-//			print(photoCollection.getPhotoByIndex(i))
-//		}
+		print("Completed Initializing Photo Collection")		
 	}
 	
 	func getPhotoCollection() -> PhotoCollection {
 		return photoCollection
 	}
 }
-
-
-
-
-
-
-

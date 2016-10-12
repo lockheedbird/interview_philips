@@ -1,11 +1,3 @@
-//
-//  ImageResultsViewController.swift
-//  FlickrBrowser
-//
-//  Created by maxlev on 9/11/16.
-//  Copyright © 2016 LokiSoftware. All rights reserved.
-//
-
 import UIKit
 
 class ImageResultsViewController: UIViewController {
@@ -96,8 +88,6 @@ class ImageResultsViewController: UIViewController {
 			if let responseData = response as? NSData {
 				self.uiImageData.setResponseData(responseData)
 				if let image = UIImage(data: self.uiImageData.getResponseData()) {
-//					print("Downloaded image \(row)")
-//					print(image)
 					if(isThumbnail) {
 						photo.setThumbnail(image)
 					}
@@ -107,7 +97,6 @@ class ImageResultsViewController: UIViewController {
 					
 					self.photoCollection.addPhoto(row, photo: photo)
 					dispatch_async(dispatch_get_main_queue()) {
-						print("Playing with row: \(row)")
 						self.tableView.reloadRowsAtIndexPaths([NSIndexPath(forRow: row, inSection: 0)], withRowAnimation:.Automatic)
 					}
 				}
@@ -136,13 +125,12 @@ extension ImageResultsViewController: UITableViewDataSource {
 
 extension ImageResultsViewController: UITableViewDelegate {
 	func tableView(tableView: UITableView, didSelectRowAtIndexPath indexPath: NSIndexPath) {
+		self.searchBar.endEditing(true)
 		selectedImage = self.photoCollection.getPhotoByIndex(indexPath.row)
 
-		performSegueWithIdentifier("ShowImage", sender: self)
+		performSegueWithIdentifier("ShowImage", sender:self)
 	}
-}
 
-extension ImageResultsViewController: UIScrollViewDelegate {
 	func scrollViewDidScroll(scrollView: UIScrollView) {
 		let indexes = tableView.indexPathsForVisibleRows;
 		for index in indexes! {
@@ -172,7 +160,6 @@ extension ImageResultsViewController: UISearchBarDelegate {
 				self.isNewSearchTerm = false
 			}
 		}
-		// Disable search bar after search is initiated
 		searchBar.endEditing(true)
 	}
 }

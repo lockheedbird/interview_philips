@@ -1,11 +1,3 @@
-//
-//  Photo.swift
-//  FlickrBrowser
-//
-//  Created by maxlev on 10/2/16.
-//  Copyright © 2016 LokiSoftware. All rights reserved.
-//
-
 import Foundation
 import UIKit
 

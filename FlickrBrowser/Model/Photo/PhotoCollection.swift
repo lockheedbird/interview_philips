@@ -1,11 +1,3 @@
-//
-//  PhotoCollection.swift
-//  FlickrBrowser
-//
-//  Created by maxlev on 10/2/16.
-//  Copyright © 2016 LokiSoftware. All rights reserved.
-//
-
 import Foundation
 import UIKit
 
@@ -38,11 +30,9 @@ class PhotoCollection {
 
 	
 	func printCollection() {
-		print("================================== PHOTO COLLECTION INFORMATION ===============================================")
 		print("There are \(photoDictionaryByRow.keys.count) photos in the collection.")
 		for item in photoDictionaryByRow {
 			print(item)
 		}
-		print("===============================================================================================================")
 	}
 }
