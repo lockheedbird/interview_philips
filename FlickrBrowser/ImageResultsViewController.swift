@@ -23,6 +23,8 @@ class ImageResultsViewController: UIViewController {
 	override func viewDidLoad() {
 		super.viewDidLoad()
 		
+		tableView.rowHeight = UITableViewAutomaticDimension
+		
 		tableView.dataSource = self
 		tableView.delegate = self
 	}
@@ -117,8 +119,13 @@ extension ImageResultsViewController: UITableViewDataSource {
 		if let image = self.photoCollection.getThumbnailByIndex(indexPath.row) {
 			cell.imageView?.image = image
 		}
-		cell.textLabel?.text = "Row \(indexPath.row + 1): Title: \(self.photoCollection.photoDictionaryByRow[indexPath.row]!.title)"
-		
+
+		cell.textLabel?.text = "\(self.photoCollection.photoDictionaryByRow[indexPath.row]!.title)"
+		cell.textLabel?.font = UIFont(name: "Helvetica", size: CGFloat(10))
+		cell.textLabel?.sizeToFit()
+		cell.textLabel?.lineBreakMode = NSLineBreakMode.ByWordWrapping
+		cell.textLabel?.numberOfLines = 0
+
 		return cell
 	}
 }
